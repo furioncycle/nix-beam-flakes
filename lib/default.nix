@@ -5,7 +5,14 @@ let
   inherit (lib.attrsets) filterAttrs mapAttrs' nameValuePair;
   inherit (lib.trivial) importJSON pipe;
   inherit (findBasePackage) elixirBasePackage otpBasePackage;
-
+  mkBeamPkgs =
+    pkgs: erlang:
+    let
+      major = lib.versions.major erlang.version;
+    in
+    pkgs.beam.packages."erlang_${major}".overrideScope (
+      _final: _prev: { inherit erlang; }
+    );
   compatibleVersions =
     let
       elixirsFor =
@@ -30,7 +37,7 @@ let
         erlang: _name: attrs:
         if erlang != null then
           nameValuePair "elixir_${attrs.version}" (
-            mkElixir (pkgs.beam.packagesWith erlang) attrs.version attrs.checksum
+            mkElixir  pkgs (mkBeamPkgs pkgs erlang) attrs.version attrs.checksum
           )
         else
           null;
@@ -117,7 +124,7 @@ let
     }:
     let
       erlang = mkErlang pkgs erlangVersion versions.erlang.${erlangVersion};
-      beamPkgs = (pkgs.beam.packagesWith erlang).extend (
+      beamPkgs = (mkBeamPkgs pkgs erlang).extend (
         _: _: {
           elixir = mkElixir pkgs beamPkgs elixirVersion versions.elixir.${elixirVersion};
         }
