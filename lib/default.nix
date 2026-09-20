@@ -7,13 +7,9 @@ let
   inherit (findBasePackage) elixirBasePackage otpBasePackage;
   mkBeamPkgs =
     pkgs: erlang:
-    let
-      major = lib.versions.major erlang.version;
-    in
-    pkgs.beam.packages."erlang_${major}".overrideScope (
-      _final: _prev: { inherit erlang; }
-    );
-  compatibleVersions =
+    pkgs.callPackage (pkgs.path + "/pkgs/development/beam-modules") {inherit erlang; };
+
+    compatibleVersions =
     let
       elixirsFor =
         erlangVersion:
