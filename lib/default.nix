@@ -5,9 +5,32 @@ let
   inherit (lib.attrsets) filterAttrs mapAttrs' nameValuePair;
   inherit (lib.trivial) importJSON pipe;
   inherit (findBasePackage) elixirBasePackage otpBasePackage;
+    # Pick the stock OTP-major package set (for its elixir_1_XX templates),
+  # tagged with the erlang we actually want things built against.
   mkBeamPkgs =
     pkgs: erlang:
-    pkgs.callPackage (pkgs.path + "/pkgs/development/beam-modules") {inherit erlang; };
+    let
+      major = lib.versions.major erlang.version;
+    in
+    pkgs."beam${major}Packages" // { inherit erlang; };
+
+  mkElixir =
+    pkgs: beamPkgs: version: hash:
+    let
+      basePkg = elixirBasePackage beamPkgs version;
+    in
+    if basePkg != null then
+      (basePkg.override { erlang = beamPkgs.erlang; }).overrideAttrs {
+        inherit hash;
+        src = pkgs.fetchFromGitHub {
+          owner = "elixir-lang";
+          repo = "elixir";
+          tag = "v${version}";
+          inherit hash;
+        };
+      }
+    else
+      null;
 
     compatibleVersions =
     let
@@ -59,23 +82,7 @@ let
 
   latestVersions = import ./latestVersions.nix { inherit lib versions; };
 
-  mkElixir =
-    pkgs: beamPkgs: version: hash:
-    let
-      basePkg = elixirBasePackage beamPkgs version;
-    in
-    if basePkg != null then
-      basePkg.overrideAttrs {
-        inherit hash;
-        src = pkgs.fetchFromGitHub {
-          owner = "elixir-lang";
-          repo = "elixir";
-          tag = "v${version}";
-          inherit hash;
-        };
-      }
-    else
-      null;
+  
 
   mkErlang =
     pkgs: version: hash:
@@ -120,16 +127,11 @@ let
     }:
     let
       erlang = mkErlang pkgs erlangVersion versions.erlang.${erlangVersion};
-      beamPkgs = (mkBeamPkgs pkgs erlang).extend (
-        _: _: {
-          elixir = mkElixir pkgs beamPkgs elixirVersion versions.elixir.${elixirVersion};
-        }
-      );
-      inherit (beamPkgs) elixir;
+      beamPkgs = mkBeamPkgs pkgs erlang;
+      elixir = mkElixir pkgs beamPkgs elixirVersion versions.elixir.${elixirVersion};
     in
     {
-      inherit (beamPkgs) erlang;
-      inherit elixir;
+      inherit elixir erlang;
     }
     // (
       if elixirLanguageServer then
