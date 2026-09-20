@@ -3,7 +3,7 @@
 
   inputs = {
     beam-flakes = {
-      url = "github:elixir-tools/nix-beam-flakes";
+      url = "github:furioncycle/nix-beam-flakes";
       inputs.flake-parts.follows = "flake-parts";
     };
     flake-parts.url = "github:hercules-ci/flake-parts";
